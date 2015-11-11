@@ -74,20 +74,42 @@
     },
 
     getBoundingBoxParam: function (params) {
+      /*
+       * this.options.bounds can be one of the following
+       * true //Boolean - take the map bounds
+       * false //Boolean - no bounds
+       * L.latLngBounds(...) //Object
+       * [[10, 10], [40, 60]] //Array
+      */
       var bounds = this.options.bounds;
 
+      // If falsy, bail
       if (!bounds) {
         return params;
       }
 
-      if ((typeof bounds !== 'object') || !bounds.isValid()) {
+      // If set to true, use map bounds
+      // If it is a valid L.LatLngBounds object, get its values
+      // If it is an array, try running it through L.LatLngBounds
+      if (bounds === true) {
         bounds = this._map.getBounds();
+        params = makeParamsFromLeaflet(params, bounds);
+      } else if (typeof bounds === 'object' && bounds.isValid && bounds.isValid()) {
+        params = makeParamsFromLeaflet(params, bounds);
+      } else if (typeof bounds === 'object' && bounds.length > 0) {
+        var latLngBounds = L.latLngBounds(bounds);
+        if (latLngBounds.isValid && latLngBounds.isValid()) {
+          params = makeParamsFromLeaflet(params, latLngBounds);
+        }
       }
 
-      params['boundary.rect.min_lon'] = bounds.getWest();
-      params['boundary.rect.min_lat'] = bounds.getSouth();
-      params['boundary.rect.max_lon'] = bounds.getEast();
-      params['boundary.rect.max_lat'] = bounds.getNorth();
+      function makeParamsFromLeaflet (params, latLngBounds) {
+        params['boundary.rect.min_lon'] = latLngBounds.getWest();
+        params['boundary.rect.min_lat'] = latLngBounds.getSouth();
+        params['boundary.rect.max_lon'] = latLngBounds.getEast();
+        params['boundary.rect.max_lat'] = latLngBounds.getNorth();
+        return params;
+      }
 
       return params;
     },
@@ -459,6 +481,18 @@
             }
           };
 
+          var scrollSelectedResultIntoView = function () {
+            var _selected = self._results.querySelectorAll('.leaflet-pelias-selected')[0];
+            var _selectedRect = _selected.getBoundingClientRect();
+            var _resultsRect = self._results.getBoundingClientRect();
+            // Is the selected element not visible?
+            if (_selectedRect.bottom > _resultsRect.bottom) {
+              self._results.scrollTop = _selected.offsetTop + _selected.offsetHeight - self._results.offsetHeight;
+            } else if (_selectedRect.top < _resultsRect.top) {
+              self._results.scrollTop = _selected.offsetTop;
+            }
+          };
+
           for (var i = 0; i < list.length; i++) {
             if (list[i] === selected) {
               selectedPosition = i;
@@ -500,6 +534,7 @@
                 L.DomUtil.addClass(list[list.length - 1], 'leaflet-pelias-selected');
               }
 
+              scrollSelectedResultIntoView();
               panToPoint(this.options.panToPoint);
 
               L.DomEvent.preventDefault(e);
@@ -523,6 +558,7 @@
                 L.DomUtil.addClass(list[0], 'leaflet-pelias-selected');
               }
 
+              scrollSelectedResultIntoView();
               panToPoint(this.options.panToPoint);
 
               L.DomEvent.preventDefault(e);
@@ -613,15 +649,19 @@
           }
         }, this)
         .on(this._results, 'mouseover', function (e) {
-          if (map.scrollWheelZoom.enabled() && map.options.scrollWheelZoom) {
+          // Prevent scrolling over results list from zooming the map, if enabled
+          this._scrollWheelZoomEnabled = map.scrollWheelZoom.enabled();
+          if (this._scrollWheelZoomEnabled) {
             map.scrollWheelZoom.disable();
           }
-        })
+        }, this)
         .on(this._results, 'mouseout', function (e) {
-          if (!map.scrollWheelZoom.enabled() && map.options.scrollWheelZoom) {
+          // Re-enable scroll wheel zoom (if previously enabled) after
+          // leaving the results box
+          if (this._scrollWheelZoomEnabled) {
             map.scrollWheelZoom.enable();
           }
-        });
+        }, this);
 
       // Recalculate width of the input bar when window resizes
       if (this.options.fullWidth) {
