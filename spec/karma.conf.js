@@ -9,7 +9,7 @@ module.exports = function (config) {
     // Leaflet library
     'node_modules/leaflet/dist/leaflet.js',
     // Geocoder plugin
-    'dist/pelias-leaflet-geocoder.js',
+    'dist/leaflet-geocoder-mapzen.js',
     // Tests
     'spec/suites/**/*.js',
     // Misc
@@ -23,6 +23,7 @@ module.exports = function (config) {
     plugins: [
       'karma-mocha',
       'karma-coverage',
+      'karma-coveralls',
       'karma-phantomjs-launcher',
       'karma-chrome-launcher',
       'karma-safari-launcher',
@@ -39,7 +40,19 @@ module.exports = function (config) {
 
     // test results reporter to use
     // possible values: 'dots', 'progress', 'junit', 'growl', 'coverage'
-    reporters: ['nyan'],
+    reporters: ['nyan', 'coverage', 'coveralls'],
+
+    preprocessors: {
+      // source files, that you wanna generate coverage for
+      // do not include tests or libraries
+      // (these files will be instrumented by Istanbul)
+      'dist/*.js': ['coverage']
+    },
+
+    coverageReporter: {
+      type: 'lcov', // lcov or lcovonly are required for generating lcov.info files
+      dir: 'coverage/'
+    },
 
     // web server port
     port: 9876,

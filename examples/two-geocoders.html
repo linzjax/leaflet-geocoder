@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Adding Pelias geocoding to a basic Leaflet map.</title>
+  <title>Adding two geocoders.</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1, maximum-scale=1">
 
@@ -28,8 +28,14 @@
     var options = {
       pointIcon: '../dist/images/point_icon.png',
       polygonIcon: '../dist/images/polygon_icon.png',
+      expanded: true
     }
-    var geocoder = L.control.geocoder('search-MKZrG6M', options).addTo(map);
+    var geocoder1 = L.control.geocoder('search-MKZrG6M', options).addTo(map);
+    var geocoder2 = L.control.geocoder('search-MKZrG6M', options).addTo(map);
+
+    // Increase the z-index on the first geocoder to make results overlap
+    // the second geocoder input box.
+    document.querySelectorAll('.leaflet-pelias-control')[0].style.zIndex = 811;
   </script>
 </body>
 </html>
