@@ -1,3 +1,14 @@
+## v1.4.0 (next)
+
+- **Now hosted by cdnjs!** [Link to project page](https://cdnjs.com/libraries/leaflet-geocoder-mapzen)
+- `pointIcon` and `polygonIcon` options now explicitly accept boolean `true` or `false` values, with `true` being the default. Setting this to `true` will now use the same image path as previous versions, but with one important difference: it's relative to the stylesheet, rather than the script that instantiated the geocoder. This will be more in line with expected behavior for most use cases. To customize the location or filename, you can still pass in a path for the desired image.
+- Added the ability to omit the first API key parameter when instantiating the geocoder, for custom API endpoints (running Pelias) that do not require an API key.
+- Improved and documented the geocoder's internal `.collapse()` and `.expand()` methods.
+- Fixed a bug where clicking on the map when the geocoder is already collapsed will continue to fire collapse events. [#83](https://github.com/mapzen/leaflet-geocoder/issues/83)
+- Optimized image sizes losslessly with optipng. (by [@PeterDaveHello](https://github.com/PeterDaveHello)) [#88](https://github.com/mapzen/leaflet-geocoder/pull/88)
+- Removed executable permissions from image files. (by [@PeterDaveHello](https://github.com/PeterDaveHello)) [#87](https://github.com/mapzen/leaflet-geocoder/pull/87)
+- Continued improving test coverage.
+
 ## v1.3.0 (December 7, 2015)
 
 ### Project name change
@@ -20,7 +31,13 @@ To migrate from `pelias-leaflet-geocoder` to `leaflet-geocoder-mapzen`, here are
 
 #### Linking to plugin files
 
-**Filenames in the `dist/` folder have changed.** If you are `require()`ing the plugin (or a similar syntax), in a module loading system, filenames will be transparently passed through via `package.json`. But if you are linking to any of the files directly (like the stylesheet, for example), you'll need to update the filename references too.
+**Module loading systems**
+
+Since the package name has changed, you need to `require()` or `import` from the new package name.
+
+**Filenames in the `dist/` folder have changed.**
+
+If you are linking to any of the files directly (like the stylesheet, for example), you'll need to update the filename references.
 
 For example:
 
@@ -42,6 +59,9 @@ If you are referring to any hosted versions of these files, please update those 
 
 Despite the `pelias` prefix used throughout, updating class names now would probably be a headache for everyone. **So there are no changes to class names.** We may revisit this in v2 of the plugin.
 
+#### Miscellaneous
+
+Default attribution has been changed to "Geocoding by Mapzen" with a link to Mapzen Search.
 
 ## v1.2.0 (December 1, 2015)
 

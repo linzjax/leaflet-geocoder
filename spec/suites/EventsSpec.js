@@ -66,33 +66,7 @@ describe('Events', function () {
     });
   });
 
-  describe.skip('on `select`', function () {
-    it('fires `select` after selecting a result with Enter key', function () {
-      // TODO
-      // Test for properties on the event object
-    });
-    it('fires `select` after selecting a result with a click', function () {
-      // TODO
-      // Test for properties on the event object
-    });
-  });
-
-  describe('on `reset`', function () {
-    it('fires `reset` when the input is reset', function () {
-      // Geocoder must be added to the map so that it can be "clicked"
-      var map = L.map(document.createElement('div'));
-      var geocoder = new L.Control.Geocoder();
-      var onReset = sinon.spy();
-
-      geocoder.addTo(map);
-      geocoder.on('reset', onReset);
-
-      happen.click(geocoder._close);
-
-      expect(onReset.called).to.be(true);
-      expect(onReset.callCount).to.be.lessThan(2);
-    });
-  });
+  // 'select', 'highlight', 'reset' are in InterfaceSpec
 
   describe('on `expand` and `collapse`', function () {
     it('fires `expand` and `collapse`', function () {
@@ -129,6 +103,18 @@ describe('Events', function () {
       expect(onExpand.called).to.be(false);
 
       happen.click(geocoder._search);
+      expect(onCollapse.called).to.be(false);
+    });
+
+    it('does not fire if map is clicked and geocoder is already collapsed', function () {
+      var map = L.map(document.createElement('div'));
+      var geocoder = new L.Control.Geocoder();
+      var onCollapse = sinon.spy();
+
+      geocoder.addTo(map);
+      geocoder.on('collapse', onCollapse);
+
+      happen.click(map);
       expect(onCollapse.called).to.be(false);
     });
   });

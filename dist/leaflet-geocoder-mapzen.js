@@ -1,6 +1,10 @@
 /*
- * This adds a geocoder powered by pelias to a leaflet map
- * TODO: Better comments
+ * leaflet-geocoder-mapzen
+ * Leaflet plugin to search (geocode) using Mapzen Search or your
+ * own hosted version of the Pelias Geocoder API.
+ *
+ * License: MIT
+ * (c) Mapzen
  */
 ;(function (factory) { // eslint-disable-line no-extra-semi
   var L;
@@ -33,7 +37,7 @@
 
     options: {
       position: 'topleft',
-      attribution: 'Geocoding by <a href=\'https://mapzen.com/projects/search/\'>Mapzen</a>',
+      attribution: 'Geocoding by <a href="https://mapzen.com/projects/search/">Mapzen</a>',
       url: 'https://search.mapzen.com/v1',
       placeholder: 'Search',
       title: 'Search',
@@ -41,8 +45,8 @@
       latlng: null,
       layers: null,
       panToPoint: true,
-      pointIcon: 'images/point_icon.png',
-      polygonIcon: 'images/polygon_icon.png',
+      pointIcon: true, // 'images/point_icon.png',
+      polygonIcon: true, // 'images/polygon_icon.png',
       fullWidth: 650,
       markers: true,
       expanded: false,
@@ -58,9 +62,16 @@
         this.options.url = '//search.mapzen.com/v1';
       }
 
+      // If the apiKey is omitted entirely and the
+      // first parameter is actually the options
+      if (typeof apiKey === 'object' && !!apiKey) {
+        options = apiKey;
+      } else {
+        this.apiKey = apiKey;
+      }
+
       // Now merge user-specified options
       L.Util.setOptions(this, options);
-      this.apiKey = apiKey;
       this.marker;
       this.markers = [];
     },
@@ -99,7 +110,7 @@
         params = makeParamsFromLeaflet(params, bounds);
       } else if (typeof bounds === 'object' && bounds.isValid && bounds.isValid()) {
         params = makeParamsFromLeaflet(params, bounds);
-      } else if (typeof bounds === 'object' && bounds.length > 0) {
+      } else if (L.Util.isArray(bounds)) {
         var latLngBounds = L.latLngBounds(bounds);
         if (latLngBounds.isValid && latLngBounds.isValid()) {
           params = makeParamsFromLeaflet(params, latLngBounds);
@@ -263,11 +274,36 @@
     getIconType: function (layer) {
       var pointIcon = this.options.pointIcon;
       var polygonIcon = this.options.polygonIcon;
+      var classPrefix = 'leaflet-pelias-layer-icon-';
 
       if (layer.match('venue') || layer.match('address')) {
-        return pointIcon;
+        if (pointIcon === true) {
+          return {
+            type: 'class',
+            value: classPrefix + 'point'
+          };
+        } else if (pointIcon === false) {
+          return false;
+        } else {
+          return {
+            type: 'image',
+            value: pointIcon
+          };
+        }
       } else {
-        return polygonIcon;
+        if (polygonIcon === true) {
+          return {
+            type: 'class',
+            value: classPrefix + 'polygon'
+          };
+        } else if (polygonIcon === false) {
+          return false;
+        } else {
+          return {
+            type: 'image',
+            value: polygonIcon
+          };
+        }
       }
     },
 
@@ -278,7 +314,6 @@
         return;
       }
 
-      var list;
       var resultsContainer = this._results;
 
       // Reset and display results container
@@ -287,9 +322,7 @@
       // manage result box height
       resultsContainer.style.maxHeight = (this._map.getSize().y - resultsContainer.offsetTop - this._container.offsetTop - RESULTS_HEIGHT_MARGIN) + 'px';
 
-      if (!list) {
-        list = L.DomUtil.create('ul', 'leaflet-pelias-list', resultsContainer);
-      }
+      var list = L.DomUtil.create('ul', 'leaflet-pelias-list', resultsContainer);
 
       for (var i = 0, j = features.length; i < j; i++) {
         var feature = features[i];
@@ -303,12 +336,20 @@
         // This returns a L.LatLng object that can be used throughout Leaflet
         resultItem.coords = feature.geometry.coordinates;
 
-        var iconSrc = this.getIconType(feature.properties.layer);
-        if (iconSrc) {
+        var icon = this.getIconType(feature.properties.layer);
+        if (icon) {
           // Point or polygon icon
+          // May be a class or an image path
           var layerIconContainer = L.DomUtil.create('span', 'leaflet-pelias-layer-icon-container', resultItem);
-          var layerIcon = L.DomUtil.create('img', 'leaflet-pelias-layer-icon', layerIconContainer);
-          layerIcon.src = iconSrc;
+          var layerIcon;
+
+          if (icon.type === 'class') {
+            layerIcon = L.DomUtil.create('div', 'leaflet-pelias-layer-icon ' + icon.value, layerIconContainer);
+          } else {
+            layerIcon = L.DomUtil.create('img', 'leaflet-pelias-layer-icon', layerIconContainer);
+            layerIcon.src = icon.value;
+          }
+
           layerIcon.title = 'layer: ' + feature.properties.layer;
         }
 
@@ -361,7 +402,7 @@
         latlng: latlng,
         feature: selected.feature
       });
-      this.clear();
+      this.blur();
     },
 
     resetInput: function () {
@@ -372,13 +413,14 @@
       this.fire('reset');
     },
 
-    // TODO: Rename?
-    clear: function () {
+    // Removes focus from geocoder control
+    blur: function () {
       this.clearResults();
-      this._input.blur();
       if (this._input.value === '' && this._results.style.display !== 'none') {
         L.DomUtil.addClass(this._close, 'leaflet-pelias-hidden');
-        this.collapse();
+        if (!this.options.expanded) {
+          this.collapse();
+        }
       }
     },
 
@@ -399,12 +441,11 @@
     },
 
     collapse: function () {
-      // Does not collapse if search bar is always expanded
-      if (this.options.expanded) {
-        return;
-      }
-
+      // 'expanded' options check happens outside of this function now
+      // So it's now possible for a script to force-collapse a geocoder
+      // that otherwise defaults to the always-expanded state
       L.DomUtil.removeClass(this._container, 'leaflet-pelias-expanded');
+      this._input.blur();
       this.clearFullWidth();
       this.clearResults();
       this.fire('collapse');
@@ -480,23 +521,24 @@
           // Does what you might expect a _input.blur() listener might do,
           // but since that would fire for any reason (e.g. clicking a result)
           // what you really want is to blur from the control by listening to clicks on the map
-          this.clear();
+          this.blur();
         }, this)
         .on(this._search, 'click', function (e) {
           L.DomEvent.stopPropagation(e);
 
-          // If expanded option is true, just focus the input
-          if (this.options.expanded === true) {
-            this._input.focus();
-            return;
-          }
-
           // Toggles expanded state of container on click of search icon
           if (L.DomUtil.hasClass(this._container, 'leaflet-pelias-expanded')) {
-            L.DomUtil.addClass(this._close, 'leaflet-pelias-hidden');
-            this.collapse();
-            this._input.blur();
+            // If expanded option is true, just focus the input
+            if (this.options.expanded === true) {
+              this._input.focus();
+              return;
+            } else {
+              // Otherwise, toggle to hidden state
+              L.DomUtil.addClass(this._close, 'leaflet-pelias-hidden');
+              this.collapse();
+            }
           } else {
+            // If not currently expanded, clicking here always expands it
             if (this._input.value.length > 0) {
               L.DomUtil.removeClass(this._close, 'leaflet-pelias-hidden');
             }
@@ -633,7 +675,9 @@
               this._input.blur();
 
               if (L.DomUtil.hasClass(this._container, 'leaflet-pelias-expanded')) {
-                this.collapse();
+                if (!this.options.expanded) {
+                  this.collapse();
+                }
                 this.clearResults();
               }
             }
@@ -725,7 +769,8 @@
     },
 
     _onMapInteraction: function (event) {
-      if (!this._input.value) {
+      // Only collapse if the input is clear, and is currently expanded.
+      if (!this._input.value && L.DomUtil.hasClass(this._container, 'leaflet-pelias-expanded')) {
         this.collapse();
       }
     },

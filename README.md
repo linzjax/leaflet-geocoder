@@ -2,23 +2,26 @@
 [![CircleCI](https://img.shields.io/circleci/project/mapzen/leaflet-geocoder.svg?style=flat-square)](https://circleci.com/gh/mapzen/leaflet-geocoder/)
 [![David devDependencies](https://img.shields.io/david/dev/mapzen/leaflet-geocoder.svg?style=flat-square)](https://david-dm.org/mapzen/leaflet-geocoder/#info=devDependencies)
 [![Coverage Status](https://img.shields.io/coveralls/mapzen/leaflet-geocoder.svg?style=flat-square)](https://coveralls.io/github/mapzen/leaflet-geocoder?branch=master)
+[![Gitter chat](https://img.shields.io/gitter/room/pelias/pelias.svg?style=flat-square)](https://gitter.im/pelias/pelias)
 
 Leaflet + Mapzen Search geocoding plugin
 ========================================
 
 A plugin that adds the ability to search (geocode) a Leaflet-powered map using [Mapzen Search](https://mapzen.com/projects/search) or your own hosted version of the [Pelias Geocoder API](https://github.com/pelias/api).
 
+## Demo
+
+[Click here](https://mapzen.github.io/leaflet-geocoder/)
+
 ## Requirements
 
 Supports [Leaflet](https://github.com/Leaflet/Leaflet) **v0.7.3** (and higher) and **v1.0.0-beta.1** (and higher). (Previous Leaflet versions may work, but these are not targeted.) Browser support is IE8+, and for [more details, see below](https://github.com/mapzen/leaflet-geocoder#browser-support).
 
-## Demo
-
-[Click here](http://mapzen.github.io/leaflet-geocoder/)
-
 ## Basic usage
 
 **Step 1:** Import the required Leaflet JavaScript and CSS files
+
+The plugin is hosted by [cdnjs](http://cdnjs.com/libraries/leaflet-geocoder-mapzen)!
 
 ```html
 <!-- Load Leaflet from CDN -->
@@ -26,8 +29,8 @@ Supports [Leaflet](https://github.com/Leaflet/Leaflet) **v0.7.3** (and higher) a
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/leaflet.js"></script>
 
 <!-- Load geocoding plugin after Leaflet -->
-<link rel="stylesheet" href="leaflet-geocoder-mapzen.css">
-<script src="leaflet-geocoder-mapzen.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet-geocoder-mapzen/1.3.0/leaflet-geocoder-mapzen.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-geocoder-mapzen/1.3.0/leaflet-geocoder-mapzen.js"></script>
 ```
 
 **Step 2:** Initialize your Leaflet map
@@ -52,6 +55,27 @@ L.control.geocoder('<your-api-key>').addTo(map);
 
 It has much more detailed instructions and is very friendly for beginners. [Check it out here](https://mapzen.com/documentation/search/add-search-to-a-map/).
 
+### Want this as a module?
+
+You can install with [npm](https://www.npmjs.com/):
+
+```sh
+npm install leaflet-geocoder-mapzen
+```
+
+And then import it in your module system. For instance, in [Browserify's node.js-like syntax](http://browserify.org/):
+
+```javascript
+// Require Leaflet first
+var L = require('leaflet')
+
+// Requiring the geocoder extends Leaflet automatically
+require('leaflet-geocoder-mapzen')
+
+// Now you can do step 2 and 3 from "Basic usage" instructions, above
+```
+
+This plugin implements the [Universal Module Definition](https://github.com/umdjs/umd) so you can also use it in AMD and CommonJS environments.
 
 ## Customizing the plugin
 
@@ -78,7 +102,7 @@ option      | description                               | default value
 **url** | _String._ Host endpoint for a Pelias-compatible search API. | `'https://search.mapzen.com/v1'`
 **bounds** | _[Leaflet LatLngBounds object](http://leafletjs.com/reference.html#latlngbounds)_ or _Boolean_. If `true`, search is bounded by the current map view. You may also provide a custom bounding box in form of a LatLngBounds object. | `false`
 **latlng** | _[Leaflet LatLng object](http://leafletjs.com/reference.html#latlng)_ or _Boolean_. If `true`, search is biased to prioritize results near the center of the current view. You may also provide a custom LatLng value (in any of the [accepted Leaflet formats](http://leafletjs.com/reference.html#latlng)) to act as the center bias. | `false`
-**layers** | _String_ or _Array_. Layers to query (see documentation for more details). If not provided, results will come from all available layers. **NOTE:** layers is not available for the autocomplete query. | `null`
+**layers** | _String_ or _Array_. Filters results by layers ([documentation](https://mapzen.com/documentation/search/search/#filter-by-data-type)). If left blank, results will come from all available layers. **NOTE:** layers is not available for the autocomplete query. | `null`
 
 ### Interaction behavior
 
@@ -87,12 +111,12 @@ These options affect the plugin's appearance and interaction behavior.
 option      | description                               | default value
 ----------- | ----------------------------------------- | ---------------------
 **position** | _String_. Corner in which to place the geocoder control. Values correspond to Leaflet [control positions](http://leafletjs.com/reference.html#control-positions). | `'topleft'`
-**attribution** | _String_. Attribution text to include. Set to blank or `null` to disable. | `'Geocoding by <a href=\'https://mapzen.com/projects/search/\'>Mapzen</a>'`
+**attribution** | _String_. Attribution text to include. Set to blank or `null` to disable. | `'Geocoding by <a href="https://mapzen.com/projects/search/">Mapzen</a>'`
 **placeholder** | _String_. Placeholder text to display in the search input box. Set to blank or `null` to disable. | `'Search'`
 **title** | _String_. Tooltip text to display on the search icon. Set to blank or `null` to disable. | `'Search'`
 **panToPoint** | _Boolean_. If `true`, highlighting a search result pans the map to that location. | `true`
-**pointIcon** | _String_. Path to the image used to indicate a point result. Set to a falsy value to disable. | `'images/point_icon.png'`
-**polygonIcon** | _String_. Path to the image used to indicate a polygon result. Set to a falsy value to disable. | `'images/polygon_icon.png'`
+**pointIcon** | _Boolean_ or _String_. If `true`, an icon is used to indicate a point result, matching the "venue" or "address" [layer types]((https://mapzen.com/documentation/search/search/#filter-by-data-type)). If `false`, no icon is displayed. For custom icons, pass a string containing a path to the image. | `true`
+**polygonIcon** | _Boolean_ or _String_. If `true`, an icon is used to indicate a polygonal result, matching any non-"venue" or non-"address" [layer type]((https://mapzen.com/documentation/search/search/#filter-by-data-type)). If `false`, no icon is displayed. For custom icons, pass a string containing a path to the image. | `true`
 **markers** | _[Leaflet Marker options object](http://leafletjs.com/reference.html#marker-options)_ or _Boolean_. If `true`, search results drops Leaflet's default blue markers onto the map. You may customize this marker's appearance and behavior using Leaflet [marker options](http://leafletjs.com/reference.html#marker-options). | `true`
 **fullWidth** | _Integer_ or _Boolean_. If `true`, the input box will expand to take up the full width of the map container. If an integer breakpoint is provided, the full width applies only if the map container width is below this breakpoint. | `650`
 **expanded** | _Boolean_. If `true`, the search input is always expanded. It does not collapse into a button-only state. | `false`
@@ -158,10 +182,16 @@ L.control.geocoder('<your-api-key>', {
   placeholder: 'Street Geocoder'
 }).addTo(map);
 
-// Customizing icons
+// Customizing layer icons
 L.control.geocoder('<your-api-key>', {
   pointIcon: 'http://www.somewhereontheweb.com/download/img/point.png',
   polygonIcon: 'https://cloud.com/polygon-icon.svg'
+}).addTo(map);
+
+// Disabling layer icons
+L.control.geocoder('<your-api-key>', {
+  pointIcon: false,
+  polygonIcon: false
 }).addTo(map);
 
 // Configure if you want to zoom/pan to a point while browsing the results (up/down arrows)
@@ -232,6 +262,19 @@ var element = geocoder.getContainer();
 geocoder.removeFrom(map); // or geocoder.remove() in Leaflet v1
 ```
 
+### Methods
+
+There are additional methods on the geocoder that you can use.
+
+```js
+// Expand the geocoder.
+geocoder.expand();
+
+// Collapse the geocoder.
+// This works even if the option `expanded` is set to true!
+geocoder.collapse();
+```
+
 ### Events
 
 The geocoder includes all of Leaflet's [events methods](http://leafletjs.com/reference.html#events) and adds additional events that you can subscribe to, so that you can customize what happens when users interact with the geocoder. When you instantiate a new geocoder, assign it to variable, as above, and then you can use the event methods to listen for the events that it's firing. For example:
@@ -294,7 +337,7 @@ This plugin supports all Leaflet-supported browsers _except_ for Internet Explor
 
 ### Using a Pelias-compatible endpoint
 
-This project was renamed as of v1.3.0 to be more closely associated with [Mapzen Search](https://mapzen.com/projects/search), the hosted geocoding service provided by Mapzen that requires an API key. You can still point the geocoder at a different service running [Pelias](https://github.com/pelias/pelias), Mapzen's open-source geocoder, by changing the `url` option (see [Query behavior,](https://github.com/mapzen/leaflet-geocoder#query-behavior) above) to the desired endpoint. If an API key is not required, then the API key value to instantiate the geocoder can be set to `undefined` or `null`.
+This project was renamed as of v1.3.0 to be more closely associated with [Mapzen Search](https://mapzen.com/projects/search), the hosted geocoding service provided by Mapzen that requires an API key. You can still point the geocoder at a different service running [Pelias](https://github.com/pelias/pelias), Mapzen's open-source geocoder, by changing the `url` option (see [Query behavior,](https://github.com/mapzen/leaflet-geocoder#query-behavior) above) to the desired endpoint. If an API key is not required, the parameter may be omitted or be set to `undefined` or `null`.
 
 ### Accessing other plugin internals
 
@@ -302,7 +345,7 @@ Properties and methods used internally by the geocoder are also available on the
 
 ## Projects using this plugin
 
-- [GeoTracer](http://geotracer.herokuapp.com/)
+- [Map My Story](http://www.mapmystory.xyz/)
 - [Greenpoint-Williamsburg ToxiCity Map](http://clhenrick.github.io/greenpoint_williamsburg_toxicity_map/)
 - [what3emojis](http://what3emojis.com/map/)
 - [NYC Community Boards](http://louhuang.com/nyc-community-boards)

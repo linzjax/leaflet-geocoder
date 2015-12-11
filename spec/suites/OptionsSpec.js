@@ -12,6 +12,7 @@ describe('Options', function () {
   });
 
   afterEach('destroy map', function () {
+    map.remove();
     document.body.removeChild(el);
   });
 
@@ -105,6 +106,28 @@ describe('Options', function () {
     });
   });
 
+  describe('layer icons', function () {
+    it('sets the point icon', function () {
+      var geocoder = new L.Control.Geocoder({ pointIcon: 'foo' });
+      var geocoder2 = new L.Control.Geocoder({ pointIcon: true });
+      var geocoder3 = new L.Control.Geocoder({ pointIcon: false });
+
+      expect(geocoder.options.pointIcon).to.be('foo');
+      expect(geocoder2.options.pointIcon).to.be(true);
+      expect(geocoder3.options.pointIcon).to.be(false);
+    });
+
+    it('sets the polygon icon', function () {
+      var geocoder = new L.Control.Geocoder({ polygonIcon: 'bar' });
+      var geocoder2 = new L.Control.Geocoder({ polygonIcon: true });
+      var geocoder3 = new L.Control.Geocoder({ polygonIcon: false });
+
+      expect(geocoder.options.polygonIcon).to.be('bar');
+      expect(geocoder2.options.polygonIcon).to.be(true);
+      expect(geocoder3.options.polygonIcon).to.be(false);
+    });
+  });
+
   describe('expanded', function () {
     describe('when true', function () {
       var geocoder;
@@ -127,6 +150,17 @@ describe('Options', function () {
       });
 
       it('should not collapse when I click the search icon', function () {
+        happen.click(geocoder._search);
+        expect(geocoder.getContainer().classList.contains('leaflet-pelias-expanded')).to.be(true);
+      });
+
+      it('should collapse if the .collapse() method is called', function () {
+        geocoder.collapse();
+        expect(geocoder.getContainer().classList.contains('leaflet-pelias-expanded')).to.be(false);
+      });
+
+      it('should expand again if .collapse() is called and then I click the search icon', function () {
+        geocoder.collapse();
         happen.click(geocoder._search);
         expect(geocoder.getContainer().classList.contains('leaflet-pelias-expanded')).to.be(true);
       });
