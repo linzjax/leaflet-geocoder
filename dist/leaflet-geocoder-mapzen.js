@@ -248,12 +248,40 @@
           });
         }
 
+        // There might be an error message from the geocoding service itself
+        if (results && results.geocoding && results.geocoding.errors) {
+          errorMessage = results.geocoding.errors[0];
+          this.showMessage(errorMessage);
+          this.fire('error', {
+            results: results,
+            endpoint: endpoint,
+            requestType: type,
+            params: params,
+            errorCode: err.code,
+            errorMessage: errorMessage
+          });
+          return;
+        }
+
         if (results && results.features) {
+          // Ignore requests if input is currently blank, it is stale
+          if (this._input.value === '') {
+            return;
+          }
+
           // Ignore requests that started before a request which has already
           // been successfully rendered on to the UI.
           if (this.maxReqTimestampRendered < reqStartedAt) {
             this.maxReqTimestampRendered = reqStartedAt;
-            this.showResults(results.features);
+
+            // Filter the unfiltered requests from the autocompletor
+            // This modifies the original response
+            if (type === 'autocomplete' && params.layers) {
+              results.features = this.filterFeaturesByLayers(results.features, params.layers);
+            }
+
+            // Show results
+            this.showResults(results.features, params.text);
             this.fire('results', {
               results: results,
               endpoint: endpoint,
@@ -264,6 +292,36 @@
           // Else ignore the request, it is stale.
         }
       }, this);
+    },
+
+    // Filters a Pelias response (likely from autocomplete)
+    // with the layer parameter given to it
+    // @param features - a FeatureCollection
+    // @param layers - string or array of layers queried
+    filterFeaturesByLayers: function (features, layers) {
+      var newFeatures = [];
+
+      // Handle if layers = 'coarse'
+      // It is defined in the service as an alias for these layers
+      if (layers === 'coarse') {
+        layers = ['country', 'region', 'county', 'locality', 'localadmin', 'neighbourhood'];
+      }
+      // TODO: Handle if 'coarse' is in array of layers
+
+      for (var i = 0; i < features.length; i++) {
+        var feature = features[i];
+        if (feature.properties.layer === layers) {
+          newFeatures.push(feature);
+        } else if (L.Util.isArray(layers)) {
+          for (var j = 0; j < layers.length; j++) {
+            if (feature.properties.layer === layers[j]) {
+              newFeatures.push(feature);
+              break;
+            }
+          }
+        }
+      }
+      return newFeatures;
     },
 
     highlight: function (text, focus) {
@@ -307,7 +365,7 @@
       }
     },
 
-    showResults: function (features) {
+    showResults: function (features, input) {
       // Exit function if there are no features
       if (features.length === 0) {
         this.showMessage('No results were found.');
@@ -353,9 +411,7 @@
           layerIcon.title = 'layer: ' + feature.properties.layer;
         }
 
-        if (this._input.value.length > 0) {
-          resultItem.innerHTML += this.highlight(feature.properties.label, this._input.value);
-        }
+        resultItem.innerHTML += this.highlight(feature.properties.label, input);
       }
     },
 
@@ -367,7 +423,13 @@
       resultsContainer.style.display = 'block';
 
       var messageEl = L.DomUtil.create('div', 'leaflet-pelias-message', resultsContainer);
-      messageEl.textContent = text;
+
+      // Set text, with IE8 compatibility
+      if (messageEl.textContent) {
+        messageEl.textContent = text;
+      } else {
+        messageEl.innerText = text;
+      }
     },
 
     removeMarkers: function () {
@@ -407,17 +469,27 @@
 
     resetInput: function () {
       this._input.value = '';
-      L.DomUtil.addClass(this._close, 'leaflet-pelias-hidden');
+      L.DomUtil.addClass(this._reset, 'leaflet-pelias-hidden');
       this.removeMarkers();
       this._input.focus();
       this.fire('reset');
+    },
+
+    // Convenience function for focusing on the input
+    // This is meant for external use.
+    focus: function () {
+      // If not expanded, expand this first
+      if (!L.DomUtil.hasClass(this._container, 'leaflet-pelias-expanded')) {
+        this.expand();
+      }
+      this._input.focus();
     },
 
     // Removes focus from geocoder control
     blur: function () {
       this.clearResults();
       if (this._input.value === '' && this._results.style.display !== 'none') {
-        L.DomUtil.addClass(this._close, 'leaflet-pelias-hidden');
+        L.DomUtil.addClass(this._reset, 'leaflet-pelias-hidden');
         if (!this.options.expanded) {
           this.collapse();
         }
@@ -496,9 +568,9 @@
       }
 
       this._search = L.DomUtil.create('a', 'leaflet-pelias-search-icon', this._container);
-      this._close = L.DomUtil.create('div', 'leaflet-pelias-close leaflet-pelias-hidden', this._container);
-      this._close.innerHTML = '×';
-      this._close.title = 'Close';
+      this._reset = L.DomUtil.create('div', 'leaflet-pelias-close leaflet-pelias-hidden', this._container);
+      this._reset.innerHTML = '×';
+      this._reset.title = 'Reset';
 
       this._results = L.DomUtil.create('div', 'leaflet-pelias-results leaflet-bar', this._container);
 
@@ -508,8 +580,9 @@
 
       L.DomEvent
         .on(this._container, 'click', function (e) {
-          // Other listeners should call stopProgation() to
-          // prevent this from firing too greedily
+          // Child elements with 'click' listeners should call
+          // stopPropagation() to prevent that event from bubbling to
+          // the container & causing it to fire too greedily
           this._input.focus();
         }, this)
         .on(this._input, 'focus', function (e) {
@@ -534,19 +607,19 @@
               return;
             } else {
               // Otherwise, toggle to hidden state
-              L.DomUtil.addClass(this._close, 'leaflet-pelias-hidden');
+              L.DomUtil.addClass(this._reset, 'leaflet-pelias-hidden');
               this.collapse();
             }
           } else {
             // If not currently expanded, clicking here always expands it
             if (this._input.value.length > 0) {
-              L.DomUtil.removeClass(this._close, 'leaflet-pelias-hidden');
+              L.DomUtil.removeClass(this._reset, 'leaflet-pelias-hidden');
             }
             this.expand();
             this._input.focus();
           }
         }, this)
-        .on(this._close, 'click', function (e) {
+        .on(this._reset, 'click', function (e) {
           this.resetInput();
           this.clearResults();
           L.DomEvent.stopPropagation(e);
@@ -654,10 +727,10 @@
           var key = e.which || e.keyCode;
           var text = (e.target || e.srcElement).value;
 
-          if (this._input.value.length > 0) {
-            L.DomUtil.removeClass(this._close, 'leaflet-pelias-hidden');
+          if (text.length > 0) {
+            L.DomUtil.removeClass(this._reset, 'leaflet-pelias-hidden');
           } else {
-            L.DomUtil.addClass(this._close, 'leaflet-pelias-hidden');
+            L.DomUtil.addClass(this._reset, 'leaflet-pelias-hidden');
           }
 
           // Ignore all further action if the keycode matches an arrow
@@ -688,8 +761,8 @@
             return;
           }
 
-          if (this._input.value !== this._lastValue) {
-            this._lastValue = this._input.value;
+          if (text !== this._lastValue) {
+            this._lastValue = text;
 
             if (text.length >= MINIMUM_INPUT_LENGTH_FOR_AUTOCOMPLETE && this.options.autocomplete === true) {
               this.autocomplete(text);
@@ -846,6 +919,16 @@
         var response;
         var error;
 
+        try {
+          response = JSON.parse(xhr.responseText);
+        } catch (e) {
+          response = null;
+          error = {
+            code: 500,
+            message: 'Parse Error'
+          };
+        }
+
         if (xhr.readyState === 4) {
           // Handle all non-200 responses first
           if (xhr.status !== 200) {
@@ -853,21 +936,10 @@
               code: xhr.status,
               message: xhr.statusText
             };
-            callback.call(context, error, null);
+            callback.call(context, error, response);
           } else {
-            try {
-              response = JSON.parse(xhr.responseText);
-            } catch (e) {
-              response = null;
-              error = {
-                code: 500,
-                message: 'Parse Error'
-              };
-            }
-
             if (!error && response.error) {
               error = response.error;
-              response = null;
             }
 
             xhr.onerror = L.Util.falseFn;
