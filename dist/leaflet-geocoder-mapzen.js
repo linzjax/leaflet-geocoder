@@ -479,12 +479,10 @@
 
       var messageEl = L.DomUtil.create('div', 'leaflet-pelias-message', resultsContainer);
 
-      // Set text, with IE8 compatibility
-      if (messageEl.textContent) {
-        messageEl.textContent = text;
-      } else {
-        messageEl.innerText = text;
-      }
+      // Set text. This is the most cross-browser compatible method
+      // and avoids the issues we have detecting either innerText vs textContent
+      // (e.g. Firefox cannot detect textContent property on elements, but it's there)
+      messageEl.appendChild(document.createTextNode(text));
     },
 
     removeMarkers: function () {
@@ -546,6 +544,7 @@
 
     // Removes focus from geocoder control
     blur: function () {
+      this._input.blur();
       this.clearResults();
       if (this._input.value === '' && this._results.style.display !== 'none') {
         L.DomUtil.addClass(this._reset, 'leaflet-pelias-hidden');
