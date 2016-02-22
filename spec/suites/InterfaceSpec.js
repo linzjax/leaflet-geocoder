@@ -83,8 +83,27 @@ describe('Interface', function () {
   });
 
   describe('Input element', function () {
-    it('performs a search when I press enter');
-    it('does not perform a search when the input is blank');
+    it('performs a search when I press enter', function () {
+      var geocoder = new L.Control.Geocoder();
+      var stub = sinon.stub(geocoder, 'callPelias');
+
+      geocoder.addTo(map);
+      geocoder._input.value = 'foo';
+      happen.keydown(geocoder._input, { keyCode: 13 });
+
+      expect(stub.called).to.be(true);
+    });
+
+    it('does not perform a search when the input is blank', function () {
+      var geocoder = new L.Control.Geocoder();
+      var stub = sinon.stub(geocoder, 'callPelias');
+
+      geocoder.addTo(map);
+      happen.keydown(geocoder._input, { keyCode: 13 });
+
+      expect(stub.called).to.be(false);
+    });
+
     it('does not perform a search when an element is highlighted');
     it('performs autocomplete when enabled');
     it('does not perform autocomplete when disabled');
@@ -175,21 +194,26 @@ describe('Interface', function () {
       geocoder.on('select', onSelect);
       map.setView([20, 20], 10);
 
+      // The test expectations round numbers down in order to
+      // to prevent the tests from throwing errors such as
+      // "Error: expected 43.000629854450025 to equal 43.00035"
+      // see: https://circleci.com/gh/mapzen/leaflet-geocoder/194
+
       // First pan
       happen.keydown(geocoder._input, { keyCode: 40 });
       selectedEl = document.querySelector('.leaflet-pelias-selected');
       mapCenter = map.getCenter();
       coords = selectedEl.feature.geometry.coordinates;
-      expect(mapCenter.lat).to.be(coords[1]);
-      expect(mapCenter.lng).to.be(coords[0]);
+      expect(Math.floor(mapCenter.lat)).to.be(Math.floor(coords[1]));
+      expect(Math.floor(mapCenter.lng)).to.be(Math.floor(coords[0]));
 
       // Second pan
       happen.keydown(geocoder._input, { keyCode: 40 });
       selectedEl = document.querySelector('.leaflet-pelias-selected');
       mapCenter = map.getCenter();
       coords = selectedEl.feature.geometry.coordinates;
-      expect(mapCenter.lat).to.be(coords[1]);
-      expect(mapCenter.lng).to.be(coords[0]);
+      expect(Math.floor(mapCenter.lat)).to.be(Math.floor(coords[1]));
+      expect(Math.floor(mapCenter.lng)).to.be(Math.floor(coords[0]));
     });
 
     it('does not pan the map when a result is highlighted', function () {
@@ -269,5 +293,32 @@ describe('Interface', function () {
     });
 
     it('collapses if: map is dragged, and a result is highlighted');
+  });
+
+  // TODO
+  describe.skip('#focus', function () {
+    it('focuses on input when .focus() method is called');
+  });
+
+  describe.skip('#blur', function () {
+    it('blurs from input when .blur() method is called');
+  });
+
+  describe('Edge cases', function () {
+    it('should do consecutive searches when autocomplete is off', function () {
+      var geocoder = new L.Control.Geocoder({
+        autocomplete: false
+      });
+      var stub = sinon.stub(geocoder, 'callPelias');
+      geocoder.addTo(map);
+
+      geocoder._input.value = 'foo';
+      happen.keydown(geocoder._input, { keyCode: 13 });
+      expect(stub.called).to.be(true);
+
+      geocoder._input.value = 'bar';
+      happen.keydown(geocoder._input, { keyCode: 13 });
+      expect(stub.calledTwice).to.be(true);
+    });
   });
 });

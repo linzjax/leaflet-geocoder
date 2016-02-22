@@ -50,7 +50,8 @@
       fullWidth: 650,
       markers: true,
       expanded: false,
-      autocomplete: true
+      autocomplete: true,
+      place: false
     },
 
     initialize: function (apiKey, options) {
@@ -187,6 +188,22 @@
       this.callPelias(url, params, 'autocomplete');
     }, API_RATE_LIMIT),
 
+    place: function (id) {
+      // Prevent lack of input from sending a malformed query to Pelias
+      if (!id) return;
+
+      var url = this.options.url + '/place';
+      var params = {
+        ids: id
+      };
+
+      this.callPelias(url, params, 'place');
+    },
+
+    handlePlaceResponse: function (response) {
+      // Placeholder for handling place response
+    },
+
     // Timestamp of the last response which was successfully rendered to the UI.
     // The time represents when the request was *sent*, not when it was recieved.
     maxReqTimestampRendered: new Date().getTime(),
@@ -263,7 +280,8 @@
           return;
         }
 
-        if (results && results.features) {
+        // Autocomplete and search responses
+        if (results && results.features && (type === 'autocomplete' || type === 'search')) {
           // Ignore requests if input is currently blank, it is stale
           if (this._input.value === '') {
             return;
@@ -291,36 +309,73 @@
           }
           // Else ignore the request, it is stale.
         }
+
+        // Place response
+        if (results && type === 'place') {
+          this.handlePlaceResponse(results);
+          this.fire('place', {
+            results: results,
+            endpoint: endpoint,
+            requestType: type,
+            params: params
+          });
+        }
       }, this);
     },
 
-    // Filters a Pelias response (likely from autocomplete)
-    // with the layer parameter given to it
-    // @param features - a FeatureCollection
-    // @param layers - string or array of layers queried
+    /**
+     * Filters a Pelias response (likely from autocomplete)
+     * with the layer parameter given to it
+     * @param features - a FeatureCollection
+     * @param layers - string or array of layers queried
+     */
     filterFeaturesByLayers: function (features, layers) {
       var newFeatures = [];
+      // The 'coarse' alias is defined as these layers by the Pelias service.
+      // See documentation: https://mapzen.com/documentation/search/search/#filter-by-data-type
+      var coarseLayers = ['country', 'region', 'county', 'locality', 'localadmin', 'neighbourhood'];
 
-      // Handle if layers = 'coarse'
-      // It is defined in the service as an alias for these layers
-      if (layers === 'coarse') {
-        layers = ['country', 'region', 'county', 'locality', 'localadmin', 'neighbourhood'];
+      // If layers parameter is an array, make a copy of it so that
+      // it does not modify the original options object.
+      if (L.Util.isArray(layers)) {
+        layers = layers.slice();
       }
-      // TODO: Handle if 'coarse' is in array of layers
 
-      for (var i = 0; i < features.length; i++) {
-        var feature = features[i];
+      // The 'coarse' alias will be expanded to its defined layers.
+      // Handle if layers parameter is a string
+      if (layers === 'coarse') {
+        layers = coarseLayers;
+      } else if (L.Util.isArray(layers)) {
+        // And, handle if 'coarse' is in an array of layers
+        for (var i = 0; i < layers.length; i++) {
+          if (layers[i] === 'coarse') {
+            // Uses Array.splice() in an exotic way to splice one array into another array.
+            var args = [i, 1].concat(coarseLayers);
+            Array.prototype.splice.apply(layers, args);
+            // We will only do this once. If the layers provided is an array
+            // containing more than one instance of 'coarse', do not handle it.
+            // The filtering process below will ignore extra 'coarse' values, since
+            // no results will ever contain 'coarse' as a layer value.
+            break;
+          }
+        }
+      }
+
+      // Filtering the original features is done here.
+      for (var j = 0; j < features.length; j++) {
+        var feature = features[j];
         if (feature.properties.layer === layers) {
           newFeatures.push(feature);
         } else if (L.Util.isArray(layers)) {
-          for (var j = 0; j < layers.length; j++) {
-            if (feature.properties.layer === layers[j]) {
+          for (var k = 0; k < layers.length; k++) {
+            if (feature.properties.layer === layers[k]) {
               newFeatures.push(feature);
               break;
             }
           }
         }
       }
+
       return newFeatures;
     },
 
@@ -465,6 +520,10 @@
         feature: selected.feature
       });
       this.blur();
+
+      if (this.options.place) {
+        this.place(selected.feature.properties.gid);
+      }
     },
 
     resetInput: function () {
@@ -496,12 +555,13 @@
       }
     },
 
-    clearResults: function () {
+    clearResults: function (force) {
       // Hide results from view
       this._results.style.display = 'none';
 
       // Destroy contents if input has also cleared
-      if (this._input.value === '') {
+      // OR if force is true
+      if (this._input.value === '' || force === true) {
         this._results.innerHTML = '';
       }
     },
@@ -747,16 +807,13 @@
             if (text.length === 0 || this._results.style.display === 'none') {
               this._input.blur();
 
-              if (L.DomUtil.hasClass(this._container, 'leaflet-pelias-expanded')) {
-                if (!this.options.expanded) {
-                  this.collapse();
-                }
-                this.clearResults();
+              if (!this.options.expanded && L.DomUtil.hasClass(this._container, 'leaflet-pelias-expanded')) {
+                this.collapse();
               }
             }
+
             // Clears results
-            this._results.innerHTML = '';
-            this._results.style.display = 'none';
+            this.clearResults(true);
             L.DomUtil.removeClass(this._search, 'leaflet-pelias-loading');
             return;
           }
@@ -767,7 +824,7 @@
             if (text.length >= MINIMUM_INPUT_LENGTH_FOR_AUTOCOMPLETE && this.options.autocomplete === true) {
               this.autocomplete(text);
             } else {
-              this.clearResults();
+              this.clearResults(true);
             }
           }
         }, this)
@@ -827,12 +884,8 @@
         }, this);
       }
 
-      // Collapse an empty input bar when user interacts with the map
-      // Disabled if expanded is set to true
-      if (!this.options.expanded) {
-        L.DomEvent.on(this._map, 'mousedown', this._onMapInteraction, this);
-        L.DomEvent.on(this._map, 'touchstart', this._onMapInteraction, this);
-      }
+      L.DomEvent.on(this._map, 'mousedown', this._onMapInteraction, this);
+      L.DomEvent.on(this._map, 'touchstart', this._onMapInteraction, this);
 
       L.DomEvent.disableClickPropagation(this._container);
       if (map.attributionControl) {
@@ -842,9 +895,14 @@
     },
 
     _onMapInteraction: function (event) {
+      this.blur();
+
       // Only collapse if the input is clear, and is currently expanded.
-      if (!this._input.value && L.DomUtil.hasClass(this._container, 'leaflet-pelias-expanded')) {
-        this.collapse();
+      // Disabled if expanded is set to true
+      if (!this.options.expanded) {
+        if (!this._input.value && L.DomUtil.hasClass(this._container, 'leaflet-pelias-expanded')) {
+          this.collapse();
+        }
       }
     },
 
